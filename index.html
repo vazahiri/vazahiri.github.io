@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تبدیل PDF به تصاویر</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.6.172/pdf.min.js"></script>
+    <script>
+        // تنظیم مسیر کارگر PDF.js
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.6.172/pdf.worker.min.js';
+
+        // تنظیمات تیلویند برای حالت تاریک
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5D5CDE',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen flex flex-col">
+    <div class="container mx-auto px-4 py-8 flex-grow">
+        <h1 class="text-3xl font-bold text-center mb-8 text-primary dark:text-primary">تبدیل PDF به تصاویر</h1>
+        
+        <div class="max-w-xl mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <div class="mb-6">
+                <label for="pdf-file" class="block text-sm font-medium mb-2">انتخاب فایل PDF</label>
+                <input type="file" id="pdf-file" accept=".pdf" class="block w-full text-base border border-gray-300 dark:border-gray-600 rounded-md p-2 dark:bg-gray-700">
+            </div>
+            
+            <div class="mb-4">
+                <button id="convert-btn" class="w-full bg-primary text-white py-2 px-4 rounded-md hover:bg-opacity-90 transition-colors">
+                    تبدیل PDF به تصاویر
+                </button>
+            </div>
+            
+            <div id="status" class="mb-4 text-center hidden"></div>
+            
+            <div id="loading" class="flex justify-center items-center py-8 hidden">
+                <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+            </div>
+        </div>
+        
+        <div id="image-container" class="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 justify-items-center"></div>
+    </div>
+    
+    <div id="image-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 hidden">
+        <div class="relative max-w-screen-lg max-h-screen p-4">
+            <button id="close-modal" class="absolute top-0 right-0 bg-white dark:bg-gray-800 text-gray-900 dark:text-white p-2 rounded-full m-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+            <img id="modal-image" class="max-h-screen max-w-full" alt="صفحه با اندازه کامل">
+            <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-white dark:bg-gray-800 p-2 rounded-lg text-sm">
+                برای ذخیره تصویر، روی آن کلیک راست کرده و "ذخیره تصویر" را انتخاب کنید
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // بررسی تنظیمات حالت تاریک
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            document.documentElement.classList.add('dark');
+        }
+        
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+            if (event.matches) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        });
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            const pdfFileInput = document.getElementById('pdf-file');
+            const convertBtn = document.getElementById('convert-btn');
+            const statusDiv = document.getElementById('status');
+            const loadingDiv = document.getElementById('loading');
+            const imageContainer = document.getElementById('image-container');
+            const imageModal = document.getElementById('image-modal');
+            const modalImage = document.getElementById('modal-image');
+            const closeModal = document.getElementById('close-modal');
+            
+            convertBtn.addEventListener('click', async function() {
+                if (!pdfFileInput.files.length) {
+                    showStatus('لطفاً ابتدا یک فایل PDF انتخاب کنید.', 'error');
+                    return;
+                }
+                
+                const file = pdfFileInput.files[0];
+                if (file.type !== 'application/pdf') {
+                    showStatus('لطفاً یک فایل PDF معتبر انتخاب کنید.', 'error');
+                    return;
+                }
+                
+                try {
+                    await convertPdfToImages(file);
+                } catch (error) {
+                    console.error('خطا در تبدیل PDF به تصاویر:', error);
+                    showStatus(`خطا: ${error.message}`, 'error');
+                    hideLoading();
+                }
+            });
+            
+            async function convertPdfToImages(file) {
+                // پاک کردن نتایج قبلی
+                imageContainer.innerHTML = '';
+                showLoading();
+                showStatus('در حال پردازش فایل PDF...', 'info');
+                
+                // بارگذاری فایل PDF
+                const fileReader = new FileReader();
+                
+                fileReader.onload = async function() {
+                    try {
+                        const typedArray = new Uint8Array(this.result);
+                        const loadingTask = pdfjsLib.getDocument(typedArray);
+                        
+                        const pdf = await loadingTask.promise;
+                        const numPages = pdf.numPages;
+                        
+                        showStatus(`در حال تبدیل ${numPages} صفحه...`, 'info');
+                        
+                        // برای هر صفحه، رندر روی کنواس و تبدیل به تصویر
+                        for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+                            const page = await pdf.getPage(pageNum);
+                            const viewport = page.getViewport({ scale: 1.5 });
+                            
+                            // ایجاد کنواس برای این صفحه
+                            const canvas = document.createElement('canvas');
+                            const context = canvas.getContext('2d');
+                            canvas.height = viewport.height;
+                            canvas.width = viewport.width;
+                            
+                            // رندر صفحه PDF روی کنواس
+                            const renderContext = {
+                                canvasContext: context,
+                                viewport: viewport
+                            };
+                            
+                            await page.render(renderContext).promise;
+                            
+                            // تبدیل کنواس به تصویر
+                            const imgUrl = canvas.toDataURL('image/png');
+                            
+                            // ایجاد و افزودن تصویر به نمایشگر
+                            createImageElement(imgUrl, pageNum, numPages);
+                            
+                            // بروزرسانی وضعیت
+                            showStatus(`${pageNum} از ${numPages} صفحه تبدیل شد`, 'info');
+                        }
+                        
+                        showStatus(`تمام ${numPages} صفحه با موفقیت به تصویر تبدیل شد.`, 'success');
+                        hideLoading();
+                    } catch (error) {
+                        console.error('خطا در پردازش PDF:', error);
+                        showStatus(`خطا: ${error.message}`, 'error');
+                        hideLoading();
+                    }
+                };
+                
+                fileReader.onerror = function() {
+                    showStatus('خطا در خواندن فایل.', 'error');
+                    hideLoading();
+                };
+                
+                fileReader.readAsArrayBuffer(file);
+            }
+            
+            function createImageElement(imgUrl, pageNum, totalPages) {
+                const imgContainer = document.createElement('div');
+                imgContainer.className = 'relative border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden w-full max-w-md';
+                
+                const img = document.createElement('img');
+                img.src = imgUrl;
+                img.className = 'w-full h-auto cursor-pointer';
+                img.alt = `صفحه ${pageNum}`;
+                
+                const pageLabel = document.createElement('div');
+                pageLabel.className = 'absolute top-2 right-2 bg-primary text-white text-xs font-bold px-2 py-1 rounded';
+                pageLabel.textContent = `صفحه ${pageNum} از ${totalPages}`;
+                
+                const downloadHint = document.createElement('div');
+                downloadHint.className = 'absolute bottom-2 right-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded';
+                downloadHint.textContent = 'برای دیدن در سایز کامل کلیک کنید';
+                
+                imgContainer.appendChild(img);
+                imgContainer.appendChild(pageLabel);
+                imgContainer.appendChild(downloadHint);
+                
+                // افزودن رویداد کلیک برای باز کردن تصویر در مودال
+                img.addEventListener('click', function() {
+                    modalImage.src = imgUrl;
+                    modalImage.alt = `صفحه ${pageNum} با اندازه کامل`;
+                    imageModal.classList.remove('hidden');
+                });
+                
+                imageContainer.appendChild(imgContainer);
+            }
+            
+            // دکمه بستن مودال
+            closeModal.addEventListener('click', function() {
+                imageModal.classList.add('hidden');
+            });
+            
+            // بستن مودال با کلیک خارج از تصویر
+            imageModal.addEventListener('click', function(event) {
+                if (event.target === imageModal) {
+                    imageModal.classList.add('hidden');
+                }
+            });
+            
+            function showStatus(message, type) {
+                statusDiv.textContent = message;
+                statusDiv.className = 'mb-4 text-center py-2 px-4 rounded';
+                
+                switch (type) {
+                    case 'error':
+                        statusDiv.classList.add('bg-red-100', 'text-red-800', 'dark:bg-red-900', 'dark:text-red-200');
+                        break;
+                    case 'success':
+                        statusDiv.classList.add('bg-green-100', 'text-green-800', 'dark:bg-green-900', 'dark:text-green-200');
+                        break;
+                    case 'info':
+                    default:
+                        statusDiv.classList.add('bg-blue-100', 'text-blue-800', 'dark:bg-blue-900', 'dark:text-blue-200');
+                }
+                
+                statusDiv.classList.remove('hidden');
+            }
+            
+            function showLoading() {
+                loadingDiv.classList.remove('hidden');
+            }
+            
+            function hideLoading() {
+                loadingDiv.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+              </html>
+  

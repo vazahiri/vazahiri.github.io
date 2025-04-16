@@ -154,19 +154,22 @@
                     `;
                     saveIcon.addEventListener('click', () => {
                         try {
-                            if (navigator.share) {
-                                navigator.share({
-                                    title: `Page ${pageNum}`,
-                                    text: 'Share the image',
-                                    url: img.src // Data URL
-                                }).then(() => {
-                                    console.log('Shared successfully');
-                                }).catch((error) => {
-                                    console.error('Error sharing:', error);
-                                    alert('Failed to share. Please try again.');
+                            const blob = dataURLtoBlob(img.src);
+                            const url = URL.createObjectURL(blob);
+                            if (window.Telegram && window.Telegram.WebApp) {
+                                // Try opening the link in an external browser
+                                Telegram.WebApp.openLink(url);
+                                // Show popup to guide user
+                                Telegram.WebApp.showPopup({
+                                    title: 'Share Image',
+                                    message: 'Direct download is not supported. The image has been opened in your browser. Alternatively, you can share it to a Telegram chat.',
+                                    buttons: [
+                                        { id: 'ok', type: 'default', text: 'OK' }
+                                    ]
                                 });
                             } else {
-                                alert('Sharing is not supported on this platform. Please use a mobile device.');
+                                // Fallback for web
+                                alert('Direct download is not supported in this browser. Please use the Telegram mobile or desktop app.');
                             }
                         } catch (error) {
                             console.error(`Error sharing page ${pageNum}:`, error);
@@ -209,19 +212,20 @@
                 const content = await zip.generateAsync({ type: 'blob' });
                 const zipUrl = URL.createObjectURL(content);
 
-                if (navigator.share) {
-                    navigator.share({
-                        title: 'PDF Pages',
-                        text: 'Share the PDF pages as images',
-                        url: zipUrl
-                    }).then(() => {
-                        console.log('Shared successfully');
-                    }).catch((error) => {
-                        console.error('Error sharing:', error);
-                        alert('Failed to share. Please try again.');
+                if (window.Telegram && window.Telegram.WebApp) {
+                    // Try opening the ZIP in an external browser
+                    Telegram.WebApp.openLink(zipUrl);
+                    // Show popup to guide user
+                    Telegram.WebApp.showPopup({
+                        title: 'Share ZIP',
+                        message: 'Direct download is not supported. The ZIP file has been opened in your browser. Alternatively, you can share it to a Telegram chat.',
+                        buttons: [
+                            { id: 'ok', type: 'default', text: 'OK' }
+                        ]
                     });
                 } else {
-                    alert('Sharing is not supported on this platform. Please use a mobile device.');
+                    // Fallback for web
+                    alert('Direct download is not supported in this browser. Please use the Telegram mobile or desktop app.');
                 }
             } catch (error) {
                 console.error('Error creating ZIP:', error);

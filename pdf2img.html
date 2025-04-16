@@ -65,7 +65,7 @@
                 </svg>
                 <p>Processing...</p>
             </div>
-            <button id="download-all" class="w-full bg-green-500 text-white py-2 rounded-md hover:bg-green-600 transition mt-4">Download All Images</button>
+            <button id="download-all" class="w-full bg-green-500 text-white py-2 rounded-md hover:bg-green-600 transition mt-4">Share All Images as ZIP</button>
         </div>
         <div id="preview-container" class="w-full mt-6"></div>
     </div>
@@ -154,15 +154,23 @@
                     `;
                     saveIcon.addEventListener('click', () => {
                         try {
-                            const link = document.createElement('a');
-                            link.href = img.src;
-                            link.download = `page_${pageNum}.png`;
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
+                            if (navigator.share) {
+                                navigator.share({
+                                    title: `Page ${pageNum}`,
+                                    text: 'Share the image',
+                                    url: img.src // Data URL
+                                }).then(() => {
+                                    console.log('Shared successfully');
+                                }).catch((error) => {
+                                    console.error('Error sharing:', error);
+                                    alert('Failed to share. Please try again.');
+                                });
+                            } else {
+                                alert('Sharing is not supported on this platform. Please use a mobile device.');
+                            }
                         } catch (error) {
-                            console.error(`Error downloading page ${pageNum}:`, error);
-                            alert(`Failed to download page ${pageNum}. Please try again.`);
+                            console.error(`Error sharing page ${pageNum}:`, error);
+                            alert(`Failed to share page ${pageNum}. Please try again.`);
                         }
                     });
                     pageContainer.appendChild(saveIcon);
@@ -182,10 +190,10 @@
             }
         });
 
-        // Download all images as a zip
+        // Share all images as ZIP
         downloadAllBtn.addEventListener('click', async () => {
             if (imageUrls.length === 0) {
-                alert('No images to download. Please convert a PDF first.');
+                alert('No images to share. Please convert a PDF first.');
                 return;
             }
 
@@ -199,13 +207,22 @@
                 });
 
                 const content = await zip.generateAsync({ type: 'blob' });
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(content);
-                link.download = 'pdf_pages.zip';
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(link.href);
+                const zipUrl = URL.createObjectURL(content);
+
+                if (navigator.share) {
+                    navigator.share({
+                        title: 'PDF Pages',
+                        text: 'Share the PDF pages as images',
+                        url: zipUrl
+                    }).then(() => {
+                        console.log('Shared successfully');
+                    }).catch((error) => {
+                        console.error('Error sharing:', error);
+                        alert('Failed to share. Please try again.');
+                    });
+                } else {
+                    alert('Sharing is not supported on this platform. Please use a mobile device.');
+                }
             } catch (error) {
                 console.error('Error creating ZIP:', error);
                 alert('Failed to create ZIP file. Please try again.');

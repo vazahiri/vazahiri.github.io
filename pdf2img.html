@@ -72,12 +72,12 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
         // Initialize Telegram Web App
-        window.Telegram.WebApp.ready();
-        window.Telegram.WebApp.expand();
+        if (window.Telegram && window.Telegram.WebApp) {
+            window.Telegram.WebApp.ready();
+            window.Telegram.WebApp.expand();
+        }
 
         // Set worker source for pdf.js
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.worker.min.js';
@@ -93,6 +93,18 @@
         pdfInput.addEventListener('change', () => {
             convertBtn.disabled = !pdfInput.files.length;
         });
+
+        // Convert data URL to blob
+        function dataURLtoBlob(dataURL) {
+            const [header, data] = dataURL.split(',');
+            const mime = header.match(/:(.*?);/)[1];
+            const binary = atob(data);
+            const array = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+                array[i] = binary.charCodeAt(i);
+            }
+            return new Blob([array], { type: mime });
+        }
 
         // Handle PDF conversion
         convertBtn.addEventListener('click', async () => {
@@ -141,10 +153,17 @@
                         </svg>
                     `;
                     saveIcon.addEventListener('click', () => {
-                        const link = document.createElement('a');
-                        link.href = img.src;
-                        link.download = `page_${pageNum}.png`;
-                        link.click();
+                        try {
+                            const link = document.createElement('a');
+                            link.href = img.src;
+                            link.download = `page_${pageNum}.png`;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                        } catch (error) {
+                            console.error(`Error downloading page ${pageNum}:`, error);
+                            alert(`Failed to download page ${pageNum}. Please try again.`);
+                        }
                     });
                     pageContainer.appendChild(saveIcon);
 
@@ -172,13 +191,21 @@
 
             try {
                 const zip = new JSZip();
+                const imgFolder = zip.folder("images");
+                
                 imageUrls.forEach((url, index) => {
                     const base64Data = url.split(',')[1];
-                    zip.file(`page_${index + 1}.png`, base64Data, { base64: true });
+                    imgFolder.file(`page_${index + 1}.png`, base64Data, { base64: true });
                 });
 
                 const content = await zip.generateAsync({ type: 'blob' });
-                saveAs(content, 'pdf_pages.zip');
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(content);
+                link.download = 'pdf_pages.zip';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(link.href);
             } catch (error) {
                 console.error('Error creating ZIP:', error);
                 alert('Failed to create ZIP file. Please try again.');

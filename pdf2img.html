@@ -1,235 +1,147 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fa" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>PDF to Images - Telegram Mini App</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>کدگشایی URL پیشرفته</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-            background-color: #f0f2f5;
-            margin: 0;
-            padding: 0;
-            overflow-x: hidden;
+            font-family: 'Inter', sans-serif;
         }
-        .container {
-            max-width: 100%;
-            padding: 1rem;
+        /* Simple animation for button hover */
+        button:hover {
+            transform: translateY(-2px);
         }
-        #preview-container .page-container {
-            position: relative;
-            margin-bottom: 1rem;
+        button {
+            transition: all 0.2s ease-in-out;
         }
-        #preview-container img {
-            max-width: 100%;
-            height: auto;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        /* Animation for output visibility */
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
         }
-        .save-icon {
-            position: absolute;
-            bottom: 10px;
-            right: 10px;
-            background-color: rgba(0, 0, 0, 0.6);
-            border-radius: 50%;
-            padding: 8px;
-            cursor: pointer;
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
-        .save-icon svg {
-            width: 24px;
-            height: 24px;
-            color: white;
-        }
-        #download-all {
-            display: none;
-        }
-        @media (max-width: 640px) {
-            .container {
-                padding: 0.5rem;
-            }
+         /* Style for the copy button when visible */
+        #copyButton:not(.hidden) {
+            display: inline-flex; /* Use flex for centering icon and text */
+            align-items: center;
+            justify-content: center;
         }
     </style>
 </head>
-<body>
-    <div class="container mx-auto">
-        <div class="w-full bg-white rounded-lg shadow-lg p-6">
-            <h1 class="text-2xl font-bold text-center text-gray-800 mb-4">PDF to Images</h1>
-            <input type="file" id="pdf-input" accept="application/pdf" class="w-full p-2 border border-gray-300 rounded-md mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"/>
-            <button id="convert-btn" class="w-full bg-blue-500 text-white py-2 rounded-md hover:bg-blue-600 transition disabled:opacity-50" disabled>Convert to Images</button>
-            <div id="loading" class="hidden text-center text-gray-600 mt-4">
-                <svg class="animate-spin h-5 w-5 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <p>Processing...</p>
-            </div>
-            <button id="download-all" class="w-full bg-green-500 text-white py-2 rounded-md hover:bg-green-600 transition mt-4">Share All Images as ZIP</button>
+<body class="bg-gradient-to-r from-blue-500 to-teal-500 flex items-center justify-center min-h-screen p-6">
+    <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-lg transform transition duration-500 hover:scale-105">
+        <h1 class="text-3xl font-bold mb-6 text-center text-gray-800">ابزار کدگشایی URL</h1>
+
+        <div class="mb-6">
+            <label for="encodedUrl" class="block text-gray-700 text-base font-semibold mb-2">
+                URL کدگذاری شده را اینجا وارد کنید:
+            </label>
+            <textarea id="encodedUrl" rows="5" class="shadow-inner appearance-none border border-gray-300 rounded-lg w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition duration-200 ease-in-out"></textarea>
         </div>
-        <div id="preview-container" class="w-full mt-6"></div>
+
+        <div class="flex flex-col sm:flex-row gap-4 mb-6">
+            <button id="decodeButton" class="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg focus:outline-none focus:shadow-outline shadow-md hover:shadow-lg transition duration-200 ease-in-out">
+                کدگشایی کن
+            </button>
+            <button id="clearButton" class="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-lg focus:outline-none focus:shadow-outline shadow-md hover:shadow-lg transition duration-200 ease-in-out">
+                پاک کردن
+            </button>
+        </div>
+
+        <div id="decodedOutput" class="mt-6 p-5 bg-blue-100 border border-blue-300 rounded-lg text-gray-800 break-words whitespace-pre-wrap shadow-inner hidden fade-in">
+            </div>
+
+        <button id="copyButton" class="mt-4 bg-yellow-500 hover:bg-yellow-600 text-gray-800 font-bold py-2 px-4 rounded-lg focus:outline-none focus:shadow-outline shadow-md hover:shadow-lg transition duration-200 ease-in-out hidden">
+             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 0 002 2z"></path></svg>
+             کپی به کلپ‌بورد
+        </button>
+
+
+        <div id="errorMessage" class="mt-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg shadow-inner hidden fade-in">
+            </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script>
-        // Initialize Telegram Web App
-        if (window.Telegram && window.Telegram.WebApp) {
-            window.Telegram.WebApp.ready();
-            window.Telegram.WebApp.expand();
+        // Get references to the HTML elements
+        const encodedUrlTextarea = document.getElementById('encodedUrl');
+        const decodeButton = document.getElementById('decodeButton');
+        const clearButton = document.getElementById('clearButton');
+        const decodedOutputDiv = document.getElementById('decodedOutput');
+        const copyButton = document.getElementById('copyButton');
+        const errorMessageDiv = document.getElementById('errorMessage');
+
+        // Function to hide output and error messages
+        function hideResults() {
+            decodedOutputDiv.textContent = '';
+            decodedOutputDiv.classList.add('hidden');
+            decodedOutputDiv.classList.remove('fade-in'); // Remove animation class
+            copyButton.classList.add('hidden'); // Hide copy button
+            errorMessageDiv.textContent = '';
+            errorMessageDiv.classList.add('hidden');
+            errorMessageDiv.classList.remove('fade-in'); // Remove animation class
         }
 
-        // Set worker source for pdf.js
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.worker.min.js';
+        // Add event listener to the Decode button
+        decodeButton.addEventListener('click', () => {
+            const encodedUrl = encodedUrlTextarea.value.trim(); // Use trim() to remove leading/trailing whitespace
 
-        const pdfInput = document.getElementById('pdf-input');
-        const convertBtn = document.getElementById('convert-btn');
-        const loading = document.getElementById('loading');
-        const previewContainer = document.getElementById('preview-container');
-        const downloadAllBtn = document.getElementById('download-all');
-        let imageUrls = [];
+            hideResults(); // Clear previous results
 
-        // Enable convert button when a file is selected
-        pdfInput.addEventListener('change', () => {
-            convertBtn.disabled = !pdfInput.files.length;
-        });
-
-        // Convert data URL to blob
-        function dataURLtoBlob(dataURL) {
-            const [header, data] = dataURL.split(',');
-            const mime = header.match(/:(.*?);/)[1];
-            const binary = atob(data);
-            const array = new Uint8Array(binary.length);
-            for (let i = 0; i < binary.length; i++) {
-                array[i] = binary.charCodeAt(i);
-            }
-            return new Blob([array], { type: mime });
-        }
-
-        // Handle PDF conversion
-        convertBtn.addEventListener('click', async () => {
-            const file = pdfInput.files[0];
-            if (!file) return;
-
-            // Show loading
-            loading.classList.remove('hidden');
-            convertBtn.disabled = true;
-            previewContainer.innerHTML = '';
-            imageUrls = [];
-
-            try {
-                const arrayBuffer = await file.arrayBuffer();
-                const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
-                const numPages = pdf.numPages;
-
-                for (let pageNum = 1; pageNum <= numPages; pageNum++) {
-                    const page = await pdf.getPage(pageNum);
-                    const viewport = page.getViewport({ scale: 1.5 });
-                    const canvas = document.createElement('canvas');
-                    const context = canvas.getContext('2d');
-                    canvas.height = viewport.height;
-                    canvas.width = viewport.width;
-
-                    await page.render({
-                        canvasContext: context,
-                        viewport: viewport
-                    }).promise;
-
-                    const img = document.createElement('img');
-                    img.src = canvas.toDataURL('image/png');
-                    img.alt = `Page ${pageNum}`;
-
-                    // Create container for image and save icon
-                    const pageContainer = document.createElement('div');
-                    pageContainer.className = 'page-container';
-                    pageContainer.appendChild(img);
-
-                    // Add save icon
-                    const saveIcon = document.createElement('div');
-                    saveIcon.className = 'save-icon';
-                    saveIcon.innerHTML = `
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                        </svg>
-                    `;
-                    saveIcon.addEventListener('click', () => {
-                        try {
-                            const blob = dataURLtoBlob(img.src);
-                            const url = URL.createObjectURL(blob);
-                            if (window.Telegram && window.Telegram.WebApp) {
-                                // Try opening the link in an external browser
-                                Telegram.WebApp.openLink(url);
-                                // Show popup to guide user
-                                Telegram.WebApp.showPopup({
-                                    title: 'Share Image',
-                                    message: 'Direct download is not supported. The image has been opened in your browser. Alternatively, you can share it to a Telegram chat.',
-                                    buttons: [
-                                        { id: 'ok', type: 'default', text: 'OK' }
-                                    ]
-                                });
-                            } else {
-                                // Fallback for web
-                                alert('Direct download is not supported in this browser. Please use the Telegram mobile or desktop app.');
-                            }
-                        } catch (error) {
-                            console.error(`Error sharing page ${pageNum}:`, error);
-                            alert(`Failed to share page ${pageNum}. Please try again.`);
-                        }
-                    });
-                    pageContainer.appendChild(saveIcon);
-
-                    previewContainer.appendChild(pageContainer);
-                    imageUrls.push(img.src);
-                }
-
-                // Show download all button
-                downloadAllBtn.style.display = 'block';
-            } catch (error) {
-                console.error('Error processing PDF:', error);
-                alert('Failed to process PDF. Please try another file.');
-            } finally {
-                loading.classList.add('hidden');
-                convertBtn.disabled = false;
-            }
-        });
-
-        // Share all images as ZIP
-        downloadAllBtn.addEventListener('click', async () => {
-            if (imageUrls.length === 0) {
-                alert('No images to share. Please convert a PDF first.');
+            if (!encodedUrl) {
+                errorMessageDiv.textContent = 'لطفاً URL کدگذاری شده را وارد کنید.';
+                errorMessageDiv.classList.remove('hidden');
+                errorMessageDiv.classList.add('fade-in'); // Add animation class
                 return;
             }
 
             try {
-                const zip = new JSZip();
-                const imgFolder = zip.folder("images");
-                
-                imageUrls.forEach((url, index) => {
-                    const base64Data = url.split(',')[1];
-                    imgFolder.file(`page_${index + 1}.png`, base64Data, { base64: true });
-                });
+                const decodedUrl = decodeURIComponent(encodedUrl);
+                decodedOutputDiv.textContent = decodedUrl;
+                decodedOutputDiv.classList.remove('hidden');
+                decodedOutputDiv.classList.add('fade-in'); // Add animation class
+                copyButton.classList.remove('hidden'); // Show copy button
+            } catch (e) {
+                errorMessageDiv.textContent = 'خطا در کدگشایی URL: ' + e.message;
+                errorMessageDiv.classList.remove('hidden');
+                errorMessageDiv.classList.add('fade-in'); // Add animation class
+            }
+        });
 
-                const content = await zip.generateAsync({ type: 'blob' });
-                const zipUrl = URL.createObjectURL(content);
+        // Add event listener to the Clear button
+        clearButton.addEventListener('click', () => {
+            encodedUrlTextarea.value = ''; // Clear the input textarea
+            hideResults(); // Hide output and error messages
+        });
 
-                if (window.Telegram && window.Telegram.WebApp) {
-                    // Try opening the ZIP in an external browser
-                    Telegram.WebApp.openLink(zipUrl);
-                    // Show popup to guide user
-                    Telegram.WebApp.showPopup({
-                        title: 'Share ZIP',
-                        message: 'Direct download is not supported. The ZIP file has been opened in your browser. Alternatively, you can share it to a Telegram chat.',
-                        buttons: [
-                            { id: 'ok', type: 'default', text: 'OK' }
-                        ]
-                    });
-                } else {
-                    // Fallback for web
-                    alert('Direct download is not supported in this browser. Please use the Telegram mobile or desktop app.');
-                }
-            } catch (error) {
-                console.error('Error creating ZIP:', error);
-                alert('Failed to create ZIP file. Please try again.');
+        // Add event listener to the Copy button
+        copyButton.addEventListener('click', async () => {
+            const textToCopy = decodedOutputDiv.textContent;
+
+            try {
+                await navigator.clipboard.writeText(textToCopy);
+                // Optional: Provide visual feedback that text was copied
+                const originalButtonText = copyButton.innerHTML;
+                copyButton.innerHTML = '<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> کپی شد!'; // Checkmark icon
+                copyButton.classList.add('bg-green-500', 'hover:bg-green-500'); // Change color temporarily
+                copyButton.classList.remove('bg-yellow-500', 'hover:bg-yellow-600');
+
+                setTimeout(() => {
+                    copyButton.innerHTML = originalButtonText; // Restore original text and icon
+                    copyButton.classList.remove('bg-green-500', 'hover:bg-green-500');
+                    copyButton.classList.add('bg-yellow-500', 'hover:bg-yellow-600');
+                }, 2000); // Revert after 2 seconds
+
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+                // Optional: Show an error message to the user if copy fails
+                errorMessageDiv.textContent = 'خطا در کپی کردن متن.';
+                errorMessageDiv.classList.remove('hidden');
+                errorMessageDiv.classList.add('fade-in');
             }
         });
     </script>
